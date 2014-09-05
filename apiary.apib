@@ -51,6 +51,10 @@ C++ struct mixed with Java data type will be used to describe the complex data m
 ## Enum
 Enum constant which is used in the request or response data. Enum value must be serialized as a `String`.
 
+    struct ProviderInputTypeEnum {
+        imsi
+    }
+
 ## Request Data Model
 Below is C++ structs definition describing the complex JSON data model used in the API request.  
 
@@ -133,6 +137,7 @@ fields notes:
     struct PaymentProviderResult {
         String name;
         String uuid;
+        ProviderInputTypeEnum[] input_types;
         CurrencyPriceResult[] currency_prices;
     }
 
@@ -223,7 +228,8 @@ Response Model: [AttempPaymentResult](#AttempPaymentResult)
             "payment_providers": [{
                 "name": "smartfren",
                 "uuid": "abcd123def",
-                "payment_providers": [{
+                "input_types": ["imsi"],
+                "currency_prices": [{
                     "code": "IDR",
                     "name": "Indonesian Rupiah",
                     "symbol": "Rp. ",
