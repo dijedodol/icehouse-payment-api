@@ -1,0 +1,320 @@
+FORMAT: X-1A
+
+#IceHouse Payment API Documentation V1
+*Author: Gde Satrigraha (gde@icehousecorp.com)*  
+IceHouse Payment API is a RESTful Web Services exposed by IceHouse to allow various client application (IceHouse or external organization) to make payment through IceHouse payment system.
+
+# Allowed HTTPs verbs:
+
+- `GET` - Get a resource or list of resources
+- `POST` - To create or update resource
+- `PUT` - To update resource
+- `DELETE` - To delete resource
+
+# Description Of Usual Server Responses
+
+- `200 OK` - the request was successful (some API calls may return 201 instead).
+- `201 Created` - the request was successful and a resource was created.
+- `202 Accepted` - the request was accepted and enqueue for processing later.
+- `204 No Content` - the request was successful but there is no representation to return (i.e. the response is empty).
+- `400 Bad Request` - the request could not be understood or was missing required parameters.
+- `401 Unauthorized` - authentication failed.
+- `403 Forbidden` - access denied.
+- `402 Payment Required` - payment is required.
+- `404 Not Found` - resource was not found.
+- `410 Gone` - the resource has been expired.
+- `422 Unprocessable Entity` - i.e. validation errors.
+- `500 Internal Server Error` - Bad bad bad.
+- `503 Service Unavailable` - service is temporary unavailable (e.g. scheduled Platform Maintenance). Try again later.
+
+# HTTP Headers
+Some of the following custom HTTP Headers maybe required by the Payment API during API invocation (also refer to [RFC for custom HTTP Header](http://tools.ietf.org/html/rfc6648) for the naming reason):  
+
+### Application-Uuid
+Unique application's UUID as registered in the system.  
+Example:
+
+- Application-Uuid: 123456789
+
+### Application-Secret
+Application's secret password used to access the Payment API. Do not share this secret and never put this secret in the client application.
+Example:
+
+- Application-Secret: SomeSecret
+
+# Data Format
+
+## JSON
+Any complex data type MUST be encoded in JSON.  
+C++ struct mixed with Java data type will be used to describe the complex data model. `Optional<String>` means the type is String and nullable (optional).
+
+## Enum
+Enum constant which is used in the request or response data. Enum value must be serialized as a `String`.
+
+## Request Data Model
+Below is C++ structs definition describing the complex JSON data model used in the API request.  
+
+### PaymentRequestParam<a id="PaymentRequestParam"></a>
+
+    struct CurrencyPriceParam {
+        String currency_code;
+        String price;
+    }
+
+    struct PaymentRequestParam {
+        String request_uuid;
+        Optional<String> success_callback_url;
+        String success_secret;
+        Long deadline;
+        CurrencyPriceParam[] currency_prices;
+    }
+
+fields notes:
+
+- `PaymentRequestParam.request_uuid` - it is client responsibility to generate a unique random UUID.
+- `PaymentRequestParam.success_callback_url` - callback URL will be invoked with a HTTP GET method when the payment has been completed successfully. If null, no callback will be invoked.
+- `PaymentRequestParam.success_secret` - this secret will be echoed back to the client whose making the payment.
+- `PaymentRequestParam.deadline` - epoch timestamp in millisecond, when the timestamp has been reached, the PaymentRequest will be marked as expired.
+- `CurrencyPriceParam.price` - this is a number encoded as a string in US format to retain the accuracy.
+
+### MakePaymentParam<a id="MakePaymentParam"></a>
+
+    struct MakePaymentParam {
+        String request_uuid;
+        String provider_uuid;
+        String currency_code;
+    }
+
+### ConfirmPaymentOtpParam<a id="ConfirmPaymentOtpParam"></a>
+
+    struct ConfirmPaymentOtpParam {
+        String request_uuid;
+        String otp_request_uuid;
+        String otp;
+    }
+
+fields notes:
+
+- `otp` - One Time Password (OTP) recevied by the user (via sms, email or any other methods).
+
+## Response Data Model
+Below is C++ structs definition describing the complex JSON data model used in the API request.  
+
+### ExceptionResult<a id="ExceptionResult"></a>  
+This data model is used when an exception is occured on the server and failed when processing the client request.
+Ex: data validation fail, system failure, etc.
+
+    struct ExceptionResult {
+        String message;
+        Optional<ExceptionResult> cause;
+    }
+
+### PaymentRequestResult<a id="PaymentRequestResult"></a>
+
+    struct PaymentRequestResult {
+        String currency_code;
+        String amount_paid;
+        Long record_timestamp;
+    }
+
+fields notes:
+
+- `record_timestamp` - epoch timestamp in millisecond indicating the time when the payment was recorded.
+
+### AttempPaymentResult<a id="AttempPaymentResult"></a>
+
+    struct CurrencyPriceResult {
+        String code;
+        String name;
+        String symbol;
+        String price;
+    }
+
+    struct PaymentProviderResult {
+        String name;
+        String uuid;
+        CurrencyPriceResult[] currency_prices;
+    }
+
+    struct AttempPaymentResult {
+        Long deadline;
+        PaymentProviderResult[] payment_providers;
+    }
+
+fields notes:
+
+- `CurrencyPriceResult.price` - this is a number encoded as a string in US format to retain the accuracy.
+
+### MakePaymentResult<a id="MakePaymentResult"></a>
+
+    struct MakePaymentResult {
+        String success_secret;
+    }
+
+# Group Payment Request
+
+## Payment Request [/v1/payment/request/{request_uuid}]
+
+### Register a Payment Request [POST]
+Request Model: [PaymentRequestParam](#PaymentRequestParam)
+
++ Request (application/json)
+
+    + Header
+    
+            Application-Uuid: 987654321
+            Application-Secret: SomeSecret
+            
+    + Body
+    
+            {
+                "request_uuid": "111",
+                "success_callback_url": null,
+                "success_secret": "example success secret",
+                "deadline": 1409860899000,
+                "currency_prices": [{
+                    "currency_code": "IDR",
+                    "price": "2500.00"
+                },{
+                    "currency_code": "USD",
+                    "price": "1.00"
+                }]
+            }
+
++ Response 204
+
+### Get a Registered Payment Request Status [GET]
+Response Model: [PaymentRequestResult](#PaymentRequestResult)
+
++ Request (application/json)
+
+    + Header
+    
+            Application-Uuid: 987654321
+            Application-Secret: SomeSecret
+
++ Response 200 (application/json)
+
+        {
+            "currency_code": "IDR",
+            "amount_paid": "2500.00",
+            "record_timestamp": 1409860878000
+        }
+
++ Response 402
+
+# Group Payment Request Pay
+
+## Payment Request Pay [/v1/payment/pay/request/{request_uuid}]
+
+### Get Payment Request Information [GET]
+Response Model: [AttempPaymentResult](#AttempPaymentResult)
+
++ Request
+
+    + Header
+    
+            Application-Uuid: 987654321
+
++ Response 200 (application/json)
+
+        {
+            "deadline": "1409860899000",
+            "payment_providers": [{
+                "name": "smartfren",
+                "uuid": "abcd123def",
+                "payment_providers": [{
+                    "code": "IDR",
+                    "name": "Indonesian Rupiah",
+                    "symbol": "Rp. ",
+                    "price": "2500.00"
+                },{
+                    "code": "USD",
+                    "name": "US Dollar",
+                    "symbol": "$",
+                    "price": "1.00"
+                }]
+            }]
+        }
+
+### Attempt to Pay the Payment Request [POST]
+Attempt to pay the payment request with the selected provider and currency.
+There are 3 normal expected results from this API call:
+
+- `HTTP 201` - returned along with the success secret in the body when the payment has been processed successfully.
+- `HTTP 204` - this HTTP status code indicate a One Time Password (OTP) verification is needed.
+The OTP will be sent to the user and the process should continue by invoking this API with HTTP PUT method along with the received OTP.
+- `HTTP 202` - indicates the payment request is being processed asynchronously.
+A `Location` header will be given to poll for the payment processing status.
+
++ Request
+
+    + Header
+    
+            Application-Uuid: 987654321
+
+    + Body
+    
+            {
+                "request_uuid": "111",
+                "provider_uuid": "abcd123def",
+                "currency_code": "IDR"
+            }
+
++ Response 201 (application/json)
+
+        {
+            "success_secret": "example success secret"
+        }
+        
++ Response 204
+
++ Response 202
+
+    + Header
+    
+            Location: http://payment.icehousecorp.com/v1/payment/pay/async/request/111
+
++ Response 410
+
+### Attempt to continue payment with the received OTP [PUT]
+
++ Request
+
+    + Header
+    
+            Application-Uuid: 987654321
+
+    + Body
+    
+            {
+                "request_uuid": "111",
+                "otp_request_uuid": "ab456cd123def",
+                "otp": "270987"
+            }
+
++ Response 200 (application/json)
+
+        {
+            "success_secret": "example success secret"
+        }
+
+## Payment Request Pay Async [/v1/payment/pay/async/request/{request_uuid}]
+
+### Get Async Payment Request Pay Result [GET]
+
++ Request
+
+    + Header
+
+            Application-Uuid: 987654321
+
++ Response 200 (application/json)
+
+        {
+            "success_secret": "example success secret"
+        }
+
++ Response 204
+
++ Response 404
