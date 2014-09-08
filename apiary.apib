@@ -86,8 +86,13 @@ fields notes:
     struct MakePaymentParam {
         String request_uuid;
         String provider_uuid;
+        Map<ProviderInputTypeEnum, Object> provider_inputs;
         String currency_code;
     }
+
+fields notes:
+
+- `provider_inputs` - Map (key value pairs) of provider input parameters as declared in the [AttempPaymentResult](#AttempPaymentResult).
 
 ### ConfirmPaymentOtpParam<a id="ConfirmPaymentOtpParam"></a>
 
@@ -264,6 +269,9 @@ A `Location` header will be given to poll for the payment processing status.
             {
                 "request_uuid": "111",
                 "provider_uuid": "abcd123def",
+                "provider_inputs": {
+                    "imsi": "123456789"
+                },
                 "currency_code": "IDR"
             }
 
