@@ -66,6 +66,8 @@ Below is C++ structs definition describing the complex JSON data model used in t
     }
 
     struct PaymentRequestParam {
+        String user_display_text;
+        String email_receipt_text;
         Optional<String> success_callback_url;
         String success_secret;
         Long deadline;
@@ -178,6 +180,8 @@ Request Model: [PaymentRequestParam](#PaymentRequestParam)
     + Body
     
             {
+                "user_display_text": "Selfie 1 Month Subscription",
+                "email_receipt_text": "Thank you for purchasing Selfie 1 Month subscription",
                 "success_callback_url": null,
                 "success_secret": "example success secret",
                 "deadline": 1409860899000,
@@ -228,6 +232,7 @@ Response Model: [AttempPaymentResult](#AttempPaymentResult)
 + Response 200 (application/json)
 
         {
+            "display_text": "Selfie 1 Month Subscription",
             "deadline": "1409860899000",
             "payment_providers": [{
                 "name": "smartfren",
